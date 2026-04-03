@@ -63,7 +63,6 @@ jobs:
         # file in the project dir (or use CHARM_PATH, if set).
         run: charmcraft pack
       - name: Run integration tests
-        # Set a predictable model name so it can be consumed by charm-logdump-action.
         run: tox -e integration -- --juju-dump-logs
       - name: Upload logs
         if: ${{ !cancelled() }}
