@@ -44,6 +44,7 @@ integration = [
     "pytest",
     "pytest-jubilant>=2,<3",
     "PyYAML",
+    "requests",
 ]
 
 # Testing tools configuration

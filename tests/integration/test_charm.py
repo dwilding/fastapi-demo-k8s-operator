@@ -15,16 +15,26 @@
 # The integration tests use the Jubilant library. See https://documentation.ubuntu.com/jubilant/
 # To learn more about testing, see https://documentation.ubuntu.com/ops/latest/explanation/testing/
 
+import json
 import logging
 import pathlib
+import time
 
 import jubilant
+import pytest
+import pytest_jubilant
+import requests
 import yaml
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(pathlib.Path("./charmcraft.yaml").read_text())
 APP_NAME = METADATA["name"]
+
+
+@pytest.fixture(scope="module")
+def cos(juju_factory: pytest_jubilant.JujuFactory):
+    yield juju_factory.get_juju(suffix="cos")
 
 
 def test_deploy(charm: pathlib.Path, juju: jubilant.Juju):
@@ -49,3 +59,34 @@ def test_database_integration(juju: jubilant.Juju):
     juju.deploy("postgresql-k8s", channel="14/stable", trust=True)
     juju.integrate(APP_NAME, "postgresql-k8s")
     juju.wait(jubilant.all_active)
+
+
+def test_deploy_cos(cos: jubilant.Juju):
+    """Deploy COS Lite in a separate model."""
+    cos.deploy("cos-lite", trust=True)
+    cos.wait(jubilant.all_active)
+
+
+def test_loki_integration(juju: jubilant.Juju, cos: jubilant.Juju):
+    """Integrate our charm with Loki from COS Lite."""
+    cos.offer("loki", endpoint="logging")
+    juju.integrate(APP_NAME, f"{cos.model}.loki")
+    juju.wait(jubilant.all_active)
+    cos.wait(jubilant.all_active)
+    time.sleep(2)  # Give Pebble (in our charm's workload container) time to push logs to Loki.
+
+
+def test_loki_data(cos: jubilant.Juju):
+    """Use Loki's HTTP API to verify that Loki has a label for our charm.
+
+    COS Lite exposes Loki's API through the Traefik load balancer. Traefik comes with an action
+    that tells us the base URL of Loki's API.
+    """
+    task = cos.run("traefik/0", "show-proxied-endpoints")
+    results = json.loads(task.results["proxied-endpoints"])
+    loki_url = results["loki/0"]["url"]
+    loki_api_url = f"{loki_url}/loki/api/v1/label/juju_application/values"
+    response = requests.get(loki_api_url)
+    response.raise_for_status()
+    juju_applications: list[str] = response.json()["data"]
+    assert APP_NAME in juju_applications
