@@ -42,6 +42,7 @@ unit = [
 integration = [
     "jubilant",
     "pytest",
+    "pytest-jubilant>=2,<3",
     "PyYAML",
 ]
 
