@@ -32,11 +32,6 @@ METADATA = yaml.safe_load(pathlib.Path("./charmcraft.yaml").read_text())
 APP_NAME = METADATA["name"]
 
 
-@pytest.fixture(scope="module")
-def cos(juju_factory: pytest_jubilant.JujuFactory):
-    yield juju_factory.get_juju(suffix="cos")
-
-
 def test_deploy(charm: pathlib.Path, juju: jubilant.Juju):
     """Deploy the charm under test.
 
@@ -48,7 +43,7 @@ def test_deploy(charm: pathlib.Path, juju: jubilant.Juju):
 
     # Deploy the charm and wait for it to report blocked, as it needs Postgres.
     juju.deploy(f"./{charm}", app=APP_NAME, resources=resources)
-    juju.wait(jubilant.all_blocked)
+    juju.wait(jubilant.all_blocked, timeout=10 * 60)  # Use a long timeout for local testing.
 
 
 def test_database_integration(juju: jubilant.Juju):
@@ -61,10 +56,15 @@ def test_database_integration(juju: jubilant.Juju):
     juju.wait(jubilant.all_active)
 
 
+@pytest.fixture(scope="module")
+def cos(juju_factory: pytest_jubilant.JujuFactory):
+    yield juju_factory.get_juju(suffix="cos")
+
+
 def test_deploy_cos(cos: jubilant.Juju):
     """Deploy COS Lite in a separate model."""
     cos.deploy("cos-lite", trust=True)
-    cos.wait(jubilant.all_active)
+    cos.wait(jubilant.all_active, timeout=10 * 60)  # Use a long timeout for local testing.
 
 
 def test_loki_integration(juju: jubilant.Juju, cos: jubilant.Juju):
@@ -73,11 +73,10 @@ def test_loki_integration(juju: jubilant.Juju, cos: jubilant.Juju):
     juju.integrate(APP_NAME, f"{cos.model}.loki")
     juju.wait(jubilant.all_active)
     cos.wait(jubilant.all_active)
-    time.sleep(2)  # Give Pebble (in our charm's workload container) time to push logs to Loki.
 
 
 def test_loki_data(cos: jubilant.Juju):
-    """Use Loki's HTTP API to verify that Loki has a label for our charm.
+    """Use Loki's HTTP API to verify that Loki has a label for our app.
 
     COS Lite exposes Loki's API through the Traefik load balancer. Traefik comes with an action
     that tells us the base URL of Loki's API.
@@ -86,7 +85,15 @@ def test_loki_data(cos: jubilant.Juju):
     results = json.loads(task.results["proxied-endpoints"])
     loki_url = results["loki/0"]["url"]
     loki_api_url = f"{loki_url}/loki/api/v1/label/juju_application/values"
-    response = requests.get(loki_api_url)
-    response.raise_for_status()
-    juju_applications: list[str] = response.json()["data"]
-    assert APP_NAME in juju_applications
+
+    # Wait for logs to be available from Loki, then check for our app.
+    for _ in range(20):
+        response = requests.get(loki_api_url)
+        if response.status_code == 200:
+            response_decoded = response.json()
+            if "data" in response_decoded:
+                juju_applications: list[str] = response_decoded["data"]
+                assert APP_NAME in juju_applications
+                return
+        time.sleep(1)
+    raise RuntimeError("No logs available from Loki")
