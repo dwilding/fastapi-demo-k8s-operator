@@ -69,4 +69,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: juju-dump-logs
-          path: .logs
+          path: .logs/
