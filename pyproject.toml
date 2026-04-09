@@ -22,7 +22,7 @@ requires-python = ">=3.10"
 # dependencies of any charmlibs that the charm uses (copy the dependencies from PYDEPS).
 dependencies = [
     "cosl>=0.0.53",
-    "ops>=3,<4",
+    "ops~=3.7",
 ]
 
 [dependency-groups]
