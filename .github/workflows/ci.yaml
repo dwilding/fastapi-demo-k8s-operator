@@ -64,7 +64,6 @@ jobs:
         run: charmcraft pack
       - name: Run integration tests
         run: tox -e integration -- --juju-dump-logs
-      - run: sudo apt install tree && tree
       - name: Upload logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -72,3 +71,5 @@ jobs:
           name: juju-dump-logs
           path: ${{ github.workspace }}/.logs/
           if-no-files-found: error 
+      - if: ${{ !cancelled() }}
+        run: sudo apt install tree && tree
