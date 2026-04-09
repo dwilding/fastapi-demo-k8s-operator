@@ -69,7 +69,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: juju-dump-logs
-          path: ${{ github.workspace }}/.logs/
+          path: .logs
           if-no-files-found: error 
-      - if: ${{ !cancelled() }}
-        run: sudo apt install tree && tree -a && pwd
+          include-hidden-files: true
