@@ -63,11 +63,12 @@ jobs:
         # file in the project dir (or use CHARM_PATH, if set).
         run: charmcraft pack
       - name: Run integration tests
-        run: tox -e integration -- --juju-dump-logs /tmp/jdl
+        run: tox -e integration -- --juju-dump-logs
+      - run: sudo apt install tree && tree
       - name: Upload logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: juju-dump-logs
-          path: /tmp/jdl
+          path: ${{ github.workspace }}/.logs/
           if-no-files-found: error 
