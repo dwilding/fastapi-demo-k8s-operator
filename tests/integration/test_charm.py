@@ -67,8 +67,8 @@ def test_deploy_cos(cos: jubilant.Juju):
     cos.wait(jubilant.all_active, timeout=10 * 60)  # Allow time for the bundle to deploy.
 
 
-def test_loki_integration(juju: jubilant.Juju, cos: jubilant.Juju):
-    """Integrate our charm with Loki from COS Lite."""
+def test_integrate_loki(juju: jubilant.Juju, cos: jubilant.Juju):
+    """Integrate our app with Loki from COS Lite."""
     cos.offer("loki", endpoint="logging")
     juju.integrate(APP_NAME, f"{cos.model}.loki")
     juju.wait(jubilant.all_active)
@@ -85,15 +85,19 @@ def test_loki_data(cos: jubilant.Juju):
     results = json.loads(task.results["proxied-endpoints"])
     loki_url = results["loki/0"]["url"]
     loki_api_url = f"{loki_url}/loki/api/v1/label/juju_application/values"
+    juju_applications = _get_loki_logs(loki_api_url)
+    assert juju_applications is not None, "No logs available from Loki"
+    assert APP_NAME in juju_applications
 
-    # Wait for logs to be available from Loki, then check for our app.
-    for _ in range(2 * 60):
+
+def _get_loki_logs(loki_api_url: str) -> list[str] | None:
+    """Wait for logs to be available from Loki and return them."""
+    for attempt in range(60):
+        if attempt:  # If not the first attempt, wait before retrying.
+            time.sleep(1)
         response = requests.get(loki_api_url)
         if response.status_code == 200:
             response_decoded = response.json()
             if "data" in response_decoded:
-                juju_applications: list[str] = response_decoded["data"]
-                assert APP_NAME in juju_applications
-                return
-        time.sleep(1)
-    pytest.fail("No logs available from Loki")
+                return response_decoded["data"]
+    return None
