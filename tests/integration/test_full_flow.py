@@ -39,6 +39,10 @@ def _timed_step(label: str):
         logger.info("[timing] %s: %.2fs", label, elapsed)
 
 
+def _app_exists(status: jubilant.Status, app_name: str) -> bool:
+    return app_name in status.apps
+
+
 def test_full_integration_flow(charm: pathlib.Path, juju: jubilant.Juju):
     """Run the full deploy/remove/integrate flow in a single module-scoped model."""
     resources = {
@@ -59,6 +63,9 @@ def test_full_integration_flow(charm: pathlib.Path, juju: jubilant.Juju):
         if i < 10:
             with _timed_step(f"test_remove_postgres iter={i}"):
                 juju.remove_application("postgresql-k8s")
+                juju.wait(
+                    lambda status: not _app_exists(status, "postgresql-k8s"), timeout=10 * 60
+                )
                 juju.wait(lambda status: jubilant.all_blocked(status, APP_NAME), timeout=10 * 60)
 
     with _timed_step("test_integrate"):
