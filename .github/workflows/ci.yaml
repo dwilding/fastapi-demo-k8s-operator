@@ -64,9 +64,9 @@ jobs:
         run: charmcraft pack
       - name: Run integration tests
         run: |
-          uv run pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_app.py --juju-model speedrun --no-juju-teardown
-          uv run pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_postgres.py --juju-model speedrun --no-juju-teardown
-          uv run pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_integrate.py --juju-model speedrun
+          uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_app.py --juju-model speedrun --no-juju-teardown
+          uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_postgres.py --juju-model speedrun --no-juju-teardown
+          uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_integrate.py --juju-model speedrun
       - name: Upload logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
