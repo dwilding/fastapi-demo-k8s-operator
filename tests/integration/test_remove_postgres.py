@@ -22,10 +22,10 @@ import jubilant
 logger = logging.getLogger(__name__)
 
 
-def test_deploy_postgres_only(juju: jubilant.Juju):
+def test_remove_postgres_only(juju: jubilant.Juju):
     """Verify that the charm integrates with the database.
 
     Assert that the charm is active if the integration is established.
     """
-    juju.deploy("postgresql-k8s", channel="14/stable", trust=True)
-    juju.wait(jubilant.all_active, timeout=10 * 60)
+    juju.remove_application("postgresql-k8s")
+    juju.wait(jubilant.all_active)

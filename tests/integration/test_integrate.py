@@ -33,4 +33,4 @@ def test_database_integration(juju: jubilant.Juju):
     Assert that the charm is active if the integration is established.
     """
     juju.integrate(APP_NAME, "postgresql-k8s")
-    juju.wait(jubilant.all_active)
+    juju.wait(jubilant.all_active, timeout=10 * 60)

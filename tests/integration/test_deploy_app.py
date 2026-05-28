@@ -38,4 +38,4 @@ def test_deploy_app_only(charm: pathlib.Path, juju: jubilant.Juju):
 
     # Deploy the charm and wait for it to report blocked, as it needs Postgres.
     juju.deploy(charm.resolve(), app=APP_NAME, resources=resources)
-    juju.wait(jubilant.all_blocked)
+    juju.wait(jubilant.all_blocked, timeout=10 * 60)

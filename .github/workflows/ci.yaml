@@ -64,9 +64,27 @@ jobs:
         run: charmcraft pack
       - name: Run integration tests
         run: |
-          uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_app.py --juju-model speedrun --no-juju-teardown
-          uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_postgres.py --juju-model speedrun --no-juju-teardown
-          uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_integrate.py --juju-model speedrun
+          run_timed() {
+            local label="$1"
+            shift
+            local start
+            local end
+            local elapsed
+            start=$(date +%s)
+            "$@"
+            end=$(date +%s)
+            elapsed=$((end - start))
+            echo "[timing] ${label}: ${elapsed}s"
+          }
+
+          run_timed "test_deploy_app" uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_app.py --juju-model speedrun --no-juju-teardown
+          for i in {1..10}; do
+            run_timed "test_deploy_postgres iter=${i}" uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_deploy_postgres.py --juju-model speedrun --no-juju-teardown
+            if [[ "$i" -lt 10 ]]; then
+              uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_remove_postgres.py --juju-model speedrun --no-juju-teardown
+            fi
+          done
+          run_timed "test_integrate" uv run --group integration pytest -v -s --tb native --log-cli-level=INFO tests/integration/test_integrate.py --juju-model speedrun
       - name: Upload logs
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
