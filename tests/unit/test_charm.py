@@ -63,10 +63,7 @@ def test_config_changed():
     )
     state_out = ctx.run(ctx.on.config_changed(), state_in)
     command = (
-        state_out.get_container(container.name)
-        .layers["fastapi_demo"]
-        .services["fastapi"]
-        .command
+        state_out.get_container(container.name).layers["fastapi_demo"].services["fastapi"].command
     )
     assert "--port=8080" in command
 
