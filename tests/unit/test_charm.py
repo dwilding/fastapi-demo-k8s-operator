@@ -19,27 +19,76 @@ from ops import testing
 
 from charm import FastAPIDemoCharm
 
+# The OCI image (built from a rock) ships with a built-in Pebble layer that
+# defines the ``fastapi`` service with a default command, startup, environment,
+# and health check. The charm uses ``override: merge`` so it only needs to
+# override the command (for the configured port) and the environment (for
+# database credentials). To test this in isolation, we reproduce the rock's
+# base layer here.
+# See https://github.com/canonical/api_demo_server/blob/master/rockcraft.yaml
+ROCK_BASE_LAYER = ops.pebble.Layer(
+    {
+        "summary": "FastAPI demo server",
+        "description": "Base layer from the OCI image",
+        "services": {
+            "fastapi": {
+                "override": "replace",
+                "summary": "FastAPI demo server",
+                "command": "/bin/uvicorn api_demo_server.app:app --host 0.0.0.0 --port 8000",
+                "startup": "enabled",
+                "environment": {"DEMO_SERVER_LOGFILE": "/tmp/demo_server.log"},
+                "on-check-failure": {"server-up": "restart"},
+            }
+        },
+        "checks": {
+            "server-up": {
+                "override": "replace",
+                "period": "1s",
+                "timeout": "5s",
+                "threshold": 5,
+                "http": {"url": "http://127.0.0.1:8000/version"},
+            }
+        },
+    }
+)
+
 
 def test_pebble_layer():
     ctx = testing.Context(FastAPIDemoCharm)
-    container = testing.Container(name="demo-server", can_connect=True)
+    container = testing.Container(
+        name="demo-server",
+        can_connect=True,
+        layers={"rock": ROCK_BASE_LAYER},
+    )
     state_in = testing.State(
         containers={container},
         leader=True,
     )
     state_out = ctx.run(ctx.on.pebble_ready(container), state_in)
-    # Expected plan after Pebble ready with default config
+    # Expected plan after Pebble ready with default config.
+    # The charm uses ``override: merge`` so only the command and environment
+    # are overridden; the rest (summary, startup, on-check-failure, checks)
+    # is inherited from the rock's base layer.
     expected_plan = {
         "services": {
             "fastapi": {
-                "override": "replace",
-                "summary": "fastapi demo",
+                "override": "merge",
+                "summary": "FastAPI demo server",
                 "command": "uvicorn api_demo_server.app:app --host=0.0.0.0 --port=8000",
                 "startup": "enabled",
-                # Since the environment is empty, Layer.to_dict() will not
-                # include it.
+                "environment": {"DEMO_SERVER_LOGFILE": "/tmp/demo_server.log"},
+                "on-check-failure": {"server-up": "restart"},
             }
-        }
+        },
+        "checks": {
+            "server-up": {
+                "override": "replace",
+                "period": "1s",
+                "timeout": "5s",
+                "threshold": 5,
+                "http": {"url": "http://127.0.0.1:8000/version"},
+            }
+        },
     }
 
     # Check that we have the plan we expected:
@@ -94,7 +143,11 @@ def test_relation_data():
             "password": "bar",
         },
     )
-    container = testing.Container(name="demo-server", can_connect=True)
+    container = testing.Container(
+        name="demo-server",
+        can_connect=True,
+        layers={"rock": ROCK_BASE_LAYER},
+    )
     state_in = testing.State(
         containers={container},
         relations={relation},
@@ -103,9 +156,11 @@ def test_relation_data():
 
     state_out = ctx.run(ctx.on.relation_changed(relation), state_in)
 
-    assert state_out.get_container(container.name).layers["fastapi_demo"].services[
-        "fastapi"
-    ].environment == {
+    # Check the combined plan's environment, which includes both the rock's
+    # DEMO_SERVER_LOGFILE (inherited via override: merge) and the charm's
+    # database credentials.
+    assert state_out.get_container(container.name).plan.services["fastapi"].environment == {
+        "DEMO_SERVER_LOGFILE": "/tmp/demo_server.log",
         "DEMO_SERVER_DB_HOST": "example.com",
         "DEMO_SERVER_DB_PORT": "5432",
         "DEMO_SERVER_DB_USER": "foo",

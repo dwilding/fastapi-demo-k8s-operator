@@ -196,7 +196,14 @@ class FastAPIDemoCharm(ops.CharmBase):
             logger.info("Unable to connect to Pebble: %s", e)
 
     def _get_pebble_layer(self, port: int, environment: dict[str, str]) -> ops.pebble.Layer:
-        """Pebble layer for the FastAPI demo services."""
+        """Pebble layer for the FastAPI demo services.
+
+        The OCI image (built from a rock) already defines a ``fastapi`` service
+        with a default command, startup, and health checks. We only need to
+        override the command (to use the configured port) and the environment
+        (to inject database credentials), so we use ``override: merge`` to
+        keep the rest of the rock's layer intact.
+        """
         command = " ".join(
             [
                 "uvicorn",
@@ -210,10 +217,8 @@ class FastAPIDemoCharm(ops.CharmBase):
             "description": "pebble config layer for FastAPI demo server",
             "services": {
                 self.pebble_service_name: {
-                    "override": "replace",
-                    "summary": "fastapi demo",
+                    "override": "merge",
                     "command": command,
-                    "startup": "enabled",
                     "environment": environment,
                 }
             },
