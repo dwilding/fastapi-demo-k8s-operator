@@ -73,6 +73,7 @@ def cos(juju_factory: pytest_jubilant.JujuFactory):
 
 
 @pytest.mark.juju_setup
+@pytest.mark.cos
 def test_deploy_cos(charm: pathlib.Path, cos: jubilant.Juju):
     """Deploy COS Lite in a separate model."""
     cos.deploy("cos-lite", trust=True)
@@ -80,6 +81,7 @@ def test_deploy_cos(charm: pathlib.Path, cos: jubilant.Juju):
 
 
 @pytest.mark.juju_setup
+@pytest.mark.cos
 def test_integrate_loki(charm: pathlib.Path, juju: jubilant.Juju, cos: jubilant.Juju):
     """Integrate our app with Loki from COS Lite."""
     cos.offer("loki", endpoint="logging")
@@ -88,6 +90,7 @@ def test_integrate_loki(charm: pathlib.Path, juju: jubilant.Juju, cos: jubilant.
     cos.wait(jubilant.all_active)
 
 
+@pytest.mark.cos
 def test_loki_data(charm: pathlib.Path, cos: jubilant.Juju):
     """Use Loki's HTTP API to verify that Loki has a label for our app.
 

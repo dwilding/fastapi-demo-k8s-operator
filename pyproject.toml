@@ -61,6 +61,9 @@ show_missing = true
 [tool.pytest.ini_options]
 minversion = "6.0"
 log_cli_level = "INFO"
+markers = [
+    "cos: tests that deploy or interact with COS Lite",
+]
 
 # Linting tools configuration
 [tool.ruff]
