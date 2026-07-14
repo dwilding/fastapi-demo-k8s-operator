@@ -65,6 +65,13 @@ markers = [
     "cos: tests that deploy or interact with COS Lite",
 ]
 
+[tool.jjx]
+pytest-extra-args = [
+    "-vv",
+    "-m",
+    "not cos",
+]
+
 # Linting tools configuration
 [tool.ruff]
 line-length = 99
